@@ -1,16 +1,14 @@
-
 # streamlit_app.py
 import streamlit as st
 import pandas as pd
 import numpy as np
 import pickle
 
-# Load the trained model, scaler, and encoders
+# ---- Load only the trained model ----
 with open("loan_approval_model.pkl", "rb") as f:
-    model, scaler, encoders = pickle.load(f)
+    model = pickle.load(f)
 
 st.title("🏦 Loan Approval Prediction App")
-
 st.markdown("Fill in the applicant details below to predict loan approval:")
 
 # ---- User Inputs ----
@@ -43,17 +41,19 @@ input_dict = {
 
 df_input = pd.DataFrame(input_dict)
 
-# Apply label encoding (must match training encoders)
-for col in df_input.columns:
-    if col in encoders:
-        df_input[col] = encoders[col].transform(df_input[col].astype(str))
+# ---- Basic Encoding (since encoders/scaler not saved) ----
+df_input_encoded = pd.get_dummies(df_input)
 
-# Scale numerical features
-df_input_scaled = scaler.transform(df_input)
+# Match training feature columns if available
+expected_cols = getattr(model, "feature_names_in_", df_input_encoded.columns)
+for col in expected_cols:
+    if col not in df_input_encoded.columns:
+        df_input_encoded[col] = 0
+df_input_encoded = df_input_encoded[expected_cols]
 
 # ---- Prediction ----
 if st.button("Predict Loan Approval"):
-    prediction = model.predict(df_input_scaled)[0]
+    prediction = model.predict(df_input_encoded)[0]
     if prediction == 1:
         st.success("✅ Loan Approved!")
     else:
